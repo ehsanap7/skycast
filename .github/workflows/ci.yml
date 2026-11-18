@@ -1,0 +1,46 @@
+# Continuous Integration: lint, format check, and tests on every PR and push to main.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual runs from the Actions tab
+
+# Cancel superseded runs for the same branch/PR to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the workflow only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        # setup-uv publishes no floating major tag, so pin the exact release commit.
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true # cache downloaded packages keyed on uv.lock
+
+      - name: Install Python and dependencies
+        run: uv sync --locked # fail if uv.lock is out of date with pyproject.toml
+
+      - name: Run pre-commit hooks (ruff lint + format, file hygiene)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Smoke-test the CLI
+        run: uv run skycast
