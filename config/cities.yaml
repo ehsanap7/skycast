@@ -1,0 +1,6 @@
+cities:
+  - slug: toronto
+    name: Toronto
+    latitude: 43.6532
+    longitude: -79.3832
+    timezone: America/Toronto
