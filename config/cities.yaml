@@ -4,3 +4,4 @@ cities:
     latitude: 43.6532
     longitude: -79.3832
     timezone: America/Toronto
+    source_file: toronto.csv

@@ -13,6 +13,7 @@ from skycast.errors import ConfigError
 
 DEFAULT_CONFIG_DIR = Path("config")
 SLUG_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+SOURCE_FILE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.csv")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,7 @@ class City:
     latitude: float
     longitude: float
     timezone: str
+    source_file: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +98,14 @@ def _parse_timezone(raw: Mapping[str, Any]) -> str:
     return timezone
 
 
+def _parse_source_file(raw: Mapping[str, Any]) -> str:
+    """Read a plain CSV filename without any path."""
+    source_file = _field(raw, "source_file", str)
+    if not SOURCE_FILE_PATTERN.fullmatch(source_file):
+        raise ConfigError(f"Invalid source file: {source_file!r}")
+    return source_file
+
+
 def _parse_city(value: Any) -> City:
     """Build a city from its raw config."""
     raw = _as_mapping(value, "City entry")
@@ -105,6 +115,7 @@ def _parse_city(value: Any) -> City:
         latitude=_parse_coordinate(raw, "latitude", 90),
         longitude=_parse_coordinate(raw, "longitude", 180),
         timezone=_parse_timezone(raw),
+        source_file=_parse_source_file(raw),
     )
 
 

@@ -13,6 +13,7 @@ VALID_CITY = """cities:
     latitude: 10.5
     longitude: -20.5
     timezone: UTC
+    source_file: sample.csv
 """
 VALID_DATA = """active_city: sample-city
 storage:
@@ -69,6 +70,8 @@ def test_malformed_yaml_raises_config_error(tmp_path: Path) -> None:
         ("latitude: 10.5", "latitude: 91", "latitude"),
         ("longitude: -20.5", "longitude: -181", "longitude"),
         ("timezone: UTC", "timezone: Mars/Base", "Invalid timezone"),
+        ("source_file: sample.csv", "source_file: ../sample.csv", "Invalid source file"),
+        ("source_file: sample.csv", "source_file: sample.txt", "Invalid source file"),
         ("latitude: 10.5", "latitude: true", "invalid type"),
     ],
 )
