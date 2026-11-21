@@ -121,7 +121,15 @@ its own approval.
 | Version source | `importlib.metadata` | Single source of truth in `pyproject.toml` |
 | CI | GitHub Actions, required check `Lint & test` | Nothing broken reaches `main` |
 | Branch protection | Ruleset: PR required, squash-only, 0 approvals, no bypass | Solo repo that still follows its own rules |
+| Data boundary | One package, `skycast.data`; models read only the gold contract | Storage and ingestion can change without touching model code |
+| Data layers | Bronze CSV → silver Parquet → gold Parquet, stored locally for now | Raw stays immutable and every later layer can be rebuilt |
+| Historical source | Open-Meteo ERA5, hourly, UTC, wind speed in m/s | Consistent hourly history from 2010 |
+| Current scope | One configured city (Toronto) | Start small while keeping cities as configuration |
+| Prediction target | Daily high and low temperature for days 1 to 7 | Useful, explainable, and easy to compare with a baseline |
+| Forecast origin | End of each city-local day, using only data available then | Prevents future data from leaking into features |
+| Missing data | Report gaps in silver, fill only short gaps in gold, drop incomplete targets | Keeps data problems visible and labels real |
+| Data library | pandas + PyArrow, subject to a Python 3.14 check | Standard ML tooling; about 150k rows per city is small |
 
-**Open decisions** (ask the maintainer, do not assume): prediction target(s), forecast horizon,
-historical data source, recent-observations API and key setup, preprocessing design patterns
+**Open decisions** (ask the maintainer, do not assume): model evaluation, recent-observations API
+and key setup, handling ERA5 publication delay in live forecasts, preprocessing design patterns
 (to be adopted from the maintainer's existing project).
