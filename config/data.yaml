@@ -1,0 +1,8 @@
+active_city: toronto
+
+storage:
+  backend: local
+  root: data
+
+forecast:
+  horizon_days: 7
