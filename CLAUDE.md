@@ -25,6 +25,7 @@ timezone). Never put a city name in package, module, class, or function names, o
 src/skycast/          # application package (src layout)
 tests/                # pytest suite, mirrors src/skycast/
 .github/workflows/    # CI
+.claude/              # shared tool permissions and hooks
 pyproject.toml        # metadata, dependencies, ruff + pytest config
 uv.lock               # locked dependencies (always committed)
 ```
@@ -50,16 +51,14 @@ uv run pre-commit run --all-files   # everything CI runs
   `gh issue develop <#> --name <branch> --checkout`.
 - **One task at a time.** Do not combine several tasks into one step, unless they are listed
   under [Approved task groups](#approved-task-groups).
-- **Approval required** before anything hard to undo or outward-facing: commits, pushes,
-  creating/editing issues or PRs, merging, deleting, changing repo settings.
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`,
   `ci:`, `build:`), small and logical, each leaving the repo in a working state.
-  Subject line (+ optional body) only: **no `Refs #n` and no `Co-Authored-By` trailers.**
-- **Stage files explicitly** by path; never `git add .` / `git add -A`.
+  Subject line (+ optional body) only: **no trailers.**
 - **PRs:** conventional-style title; description with Summary, Changes, How to test, and
   `Closes #<n>`. CI (`Lint & test`) must pass.
 - **Merge:** squash-merge only, delete the branch, switch to `main`, pull, `git fetch --prune`.
-- Never push directly to `main` (enforced by the "Protect main" ruleset).
+
+Tool permissions (allowed, confirmed, and blocked actions) are defined in `.claude/settings.json`.
 
 ### Approved task groups
 
