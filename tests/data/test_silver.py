@@ -11,7 +11,8 @@ import pytest
 
 from skycast.config import City
 from skycast.data.contracts import BRONZE_COLUMNS, SILVER_COLUMNS
-from skycast.data.silver import build_silver, write_silver
+from skycast.data.parquet import to_parquet_bytes
+from skycast.data.silver import build_silver, read_silver, write_silver
 from skycast.data.storage import LocalStore
 from skycast.errors import DataSourceError
 
@@ -181,3 +182,40 @@ def test_write_round_trip(tmp_path: Path) -> None:
     assert str(stored["time"].dt.tz) == "UTC"
     assert report["rows"] == 3
     assert report["missing_hours"] == 1
+
+
+def test_read_silver_returns_stored_rows(tmp_path: Path) -> None:
+    """Stored silver can be loaded back."""
+    store = LocalStore(tmp_path)
+    silver = build_silver(bronze_frame(bronze_row(0), bronze_row(1)), CITY)
+    write_silver(store, CITY, silver)
+
+    frame = read_silver(store, CITY)
+
+    pd.testing.assert_frame_equal(frame, silver.frame, check_dtype=False)
+
+
+def test_read_silver_missing_file_raises(tmp_path: Path) -> None:
+    """A missing silver file is a data source error."""
+    with pytest.raises(DataSourceError, match="not found"):
+        read_silver(LocalStore(tmp_path), CITY)
+
+
+def test_read_silver_corrupt_file_raises(tmp_path: Path) -> None:
+    """A corrupt Parquet file is a data source error."""
+    store = LocalStore(tmp_path)
+    store.write_bytes("silver/city=sample/hourly.parquet", b"not parquet")
+
+    with pytest.raises(DataSourceError, match="Cannot parse"):
+        read_silver(store, CITY)
+
+
+def test_read_silver_missing_column_raises(tmp_path: Path) -> None:
+    """Stored silver must match the contract."""
+    store = LocalStore(tmp_path)
+    silver = build_silver(bronze_frame(bronze_row(0)), CITY)
+    content = to_parquet_bytes(silver.frame.drop(columns="pressure_msl"))
+    store.write_bytes("silver/city=sample/hourly.parquet", content)
+
+    with pytest.raises(DataSourceError, match="pressure_msl"):
+        read_silver(store, CITY)

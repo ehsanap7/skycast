@@ -3,7 +3,6 @@
 import json
 import logging
 from dataclasses import asdict, dataclass
-from io import BytesIO
 
 import pandas as pd
 
@@ -18,6 +17,7 @@ from skycast.data.contracts import (
     TIME_COLUMN,
     TIMESTAMP_FORMAT,
 )
+from skycast.data.parquet import read_parquet_bytes, to_parquet_bytes
 from skycast.data.storage import DatasetStore, Layer, dataset_key
 from skycast.errors import DataSourceError
 
@@ -147,13 +147,6 @@ def build_silver(bronze: pd.DataFrame, city: City) -> SilverDataset:
     return SilverDataset(frame=frame, report=report)
 
 
-def _to_parquet_bytes(frame: pd.DataFrame) -> bytes:
-    """Serialize a frame to Parquet bytes."""
-    buffer = BytesIO()
-    frame.to_parquet(buffer, engine="pyarrow", index=False)
-    return buffer.getvalue()
-
-
 def _to_json_bytes(report: QualityReport) -> bytes:
     """Serialize a quality report to stable JSON bytes."""
     return (json.dumps(asdict(report), indent=2, sort_keys=True) + "\n").encode()
@@ -163,6 +156,18 @@ def write_silver(store: DatasetStore, city: City, silver: SilverDataset) -> None
     """Store silver data and its quality report."""
     data_key = dataset_key(Layer.SILVER, city.slug, SILVER_DATA_FILE)
     report_key = dataset_key(Layer.SILVER, city.slug, QUALITY_REPORT_FILE)
-    store.write_bytes(data_key, _to_parquet_bytes(silver.frame))
+    store.write_bytes(data_key, to_parquet_bytes(silver.frame))
     store.write_bytes(report_key, _to_json_bytes(silver.report))
     logger.info("Wrote %d silver rows to %s", silver.report.rows, data_key)
+
+
+def read_silver(store: DatasetStore, city: City) -> pd.DataFrame:
+    """Load a city's stored silver data and check its columns."""
+    key = dataset_key(Layer.SILVER, city.slug, SILVER_DATA_FILE)
+    if not store.exists(key):
+        raise DataSourceError(f"Silver dataset not found: {key}")
+    frame = read_parquet_bytes(store.read_bytes(key), key)
+    missing = [column for column in SILVER_COLUMNS if column not in frame.columns]
+    if missing:
+        raise DataSourceError(f"Missing columns in {key}: {', '.join(missing)}")
+    return frame
