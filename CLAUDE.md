@@ -129,7 +129,12 @@ its own approval.
 | Forecast origin | End of each city-local day, using only data available then | Prevents future data from leaking into features |
 | Missing data | Report gaps in silver, fill only short gaps in gold, drop incomplete targets | Keeps data problems visible and labels real |
 | Data library | pandas + PyArrow, subject to a Python 3.14 check | Standard ML tooling; about 150k rows per city is small |
+| Ingestion jobs | Recent API every 4 hours, ERA5 archive daily | Fresh live inputs plus consistent training history |
+| Raw API format | One immutable JSON file per fetch | A bad batch can be traced, removed, and rebuilt |
+| Orchestration | Prefect in Docker Compose | Retries, schedules, run history, and automatic restarts |
+| Prefect dependency | Optional `orchestration` extra, installed in the scheduler image | Keeps core and future serving installs small |
+| Object storage | SeaweedFS through the S3 API, behind `DatasetStore` | Maintained and free; the MinIO community repository is archived |
 
-**Open decisions** (ask the maintainer, do not assume): model evaluation, recent-observations API
-and key setup, handling ERA5 publication delay in live forecasts, preprocessing design patterns
-(to be adopted from the maintainer's existing project).
+**Open decisions** (ask the maintainer, do not assume): model evaluation, Open-Meteo usage limits
+and key needs, preprocessing design patterns (to be adopted from the maintainer's existing
+project).
