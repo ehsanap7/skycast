@@ -9,7 +9,10 @@ import pytest
 
 from skycast import __version__
 from skycast.cli import main
-from skycast.data.contracts import BRONZE_COLUMNS
+from skycast.config import load_settings
+from skycast.data.contracts import BRONZE_COLUMNS, SourceKind
+from skycast.data.storage import LocalStore
+from skycast.ingestion.batches import save_batch
 
 CITIES = """cities:
   - slug: sample
@@ -180,3 +183,32 @@ def test_unexpected_error_is_logged(
 
     assert main(build_args(write_project(tmp_path))) == 1
     assert "Data build failed unexpectedly" in caplog.text
+
+
+def test_damaged_batch_stops_build_and_keeps_outputs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A damaged batch fails the build before silver or gold change."""
+    config_dir = write_project(tmp_path)
+    assert main(build_args(config_dir)) == 0
+    data = tmp_path / "data"
+    outputs = [
+        data / "silver" / "city=sample" / "hourly.parquet",
+        data / "gold" / "city=sample" / "training.parquet",
+    ]
+    before = [path.read_bytes() for path in outputs]
+    store = LocalStore(data)
+    city = load_settings(config_dir).active_city
+    fetched_at = pd.Timestamp("2024-01-11 00:00", tz="UTC")
+    selected = pd.DataFrame({"time": [fetched_at]})
+    key = save_batch(store, city, SourceKind.RECENT, b"{}", selected, fetched_at)
+    store.write_bytes(key, b"changed")
+    capsys.readouterr()
+
+    exit_code = main(build_args(config_dir))
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "damaged" in captured.err
+    assert "Saved" not in captured.out
+    assert [path.read_bytes() for path in outputs] == before

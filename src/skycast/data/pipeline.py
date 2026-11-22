@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from skycast.config import Settings
+from skycast.data.batch_reader import load_batches
 from skycast.data.bronze import load_bronze
 from skycast.data.contracts import GOLD_DATA_FILE
 from skycast.data.gold import build_gold, write_gold
@@ -25,12 +26,12 @@ def run_data_pipeline(settings: Settings) -> PipelineSummary:
     store = build_store(settings.storage)
     city = settings.active_city
     bronze = load_bronze(store, city)
-    silver = build_silver(bronze, city)
+    silver = build_silver(bronze, city, load_batches(store, city))
     write_silver(store, city, silver)
     gold = build_gold(read_silver(store, city), city, settings.gold, settings.horizon_days)
     write_gold(store, city, gold, settings.gold, settings.horizon_days)
     return PipelineSummary(
-        bronze_rows=len(bronze),
+        bronze_rows=silver.report.source_rows,
         silver_rows=len(silver.frame),
         gold_rows=len(gold.frame),
         gold_key=dataset_key(Layer.GOLD, city.slug, GOLD_DATA_FILE),
