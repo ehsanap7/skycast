@@ -102,6 +102,17 @@ uv run pre-commit install     # enable the git pre-commit hooks (once per clone)
 uv run skycast                # → Hello from SkyCast v0.1.0!
 ```
 
+### Build the local datasets
+
+Place the configured raw CSV in `data/bronze/city=<slug>/`, then run:
+
+```bash
+uv run skycast data build
+```
+
+This validates bronze and writes clean hourly Parquet to `data/silver/` and model-ready Parquet to
+`data/gold/`. Dataset files stay local and are ignored by git. The command is safe to rerun.
+
 ### Development commands
 
 ```bash
