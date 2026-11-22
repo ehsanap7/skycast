@@ -38,3 +38,15 @@ SILVER_COLUMNS: tuple[str, ...] = (
     TIME_COLUMN,
     *MEASUREMENT_RANGES,
 )
+
+DATE_COLUMN = "date"
+GOLD_CONTRACT_VERSION = "1.0.0"
+GOLD_DATA_FILE = "training.parquet"
+GOLD_METADATA_FILE = "metadata.json"
+
+INTERPOLATED_COLUMNS: tuple[str, ...] = (
+    "temperature_2m",
+    "relative_humidity_2m",
+    "dew_point_2m",
+    "pressure_msl",
+)
