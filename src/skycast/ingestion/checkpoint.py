@@ -2,23 +2,15 @@
 
 import json
 from dataclasses import dataclass, replace
-from enum import StrEnum
 from typing import Any
 
 import pandas as pd
 
 from skycast.config import City
 from skycast.data.bronze import load_bronze
-from skycast.data.contracts import TIME_COLUMN, TIMESTAMP_FORMAT
+from skycast.data.contracts import TIME_COLUMN, TIMESTAMP_FORMAT, SourceKind
 from skycast.data.storage import DatasetStore
 from skycast.errors import DataSourceError
-
-
-class SourceKind(StrEnum):
-    """The API sources that feed bronze."""
-
-    ARCHIVE = "archive"
-    RECENT = "recent"
 
 
 @dataclass(frozen=True, slots=True)

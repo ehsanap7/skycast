@@ -1,5 +1,7 @@
 """Data contracts shared by the data layers."""
 
+from enum import StrEnum
+
 TIME_COLUMN = "time"
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 UTC_SUFFIX = "+00:00"
@@ -38,6 +40,17 @@ SILVER_COLUMNS: tuple[str, ...] = (
     TIME_COLUMN,
     *MEASUREMENT_RANGES,
 )
+
+
+class SourceKind(StrEnum):
+    """The API sources that feed bronze."""
+
+    ARCHIVE = "archive"
+    RECENT = "recent"
+
+
+BATCHES_FOLDER = "batches"
+MANIFEST_SUFFIX = ".manifest.json"
 
 API_TIMEZONE = "GMT"
 API_TIME_FORMAT = "%Y-%m-%dT%H:%M"
