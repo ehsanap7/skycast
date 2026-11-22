@@ -15,3 +15,26 @@ BRONZE_COLUMNS: tuple[str, ...] = (
     "wind_speed_10m",
     "wind_direction_10m",
 )
+
+CITY_COLUMN = "city"
+SOURCE_COLUMN = "source"
+SILVER_DATA_FILE = "hourly.parquet"
+QUALITY_REPORT_FILE = "quality_report.json"
+
+MEASUREMENT_RANGES: dict[str, tuple[float, float]] = {
+    "temperature_2m": (-90.0, 60.0),
+    "relative_humidity_2m": (0.0, 100.0),
+    "dew_point_2m": (-100.0, 60.0),
+    "precipitation": (0.0, 400.0),
+    "pressure_msl": (850.0, 1100.0),
+    "cloud_cover": (0.0, 100.0),
+    "wind_speed_10m": (0.0, 120.0),
+    "wind_direction_10m": (0.0, 360.0),
+}
+
+SILVER_COLUMNS: tuple[str, ...] = (
+    CITY_COLUMN,
+    SOURCE_COLUMN,
+    TIME_COLUMN,
+    *MEASUREMENT_RANGES,
+)
