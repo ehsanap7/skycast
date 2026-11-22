@@ -41,6 +41,15 @@ class StorageSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class GoldSettings:
+    """How the gold dataset is built."""
+
+    max_fill_hours: int
+    lag_days: tuple[int, ...]
+    rolling_days: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
     """All settings needed by the data section."""
 
@@ -48,6 +57,7 @@ class Settings:
     active_city: City
     storage: StorageSettings
     horizon_days: int
+    gold: GoldSettings
 
 
 def _read_yaml(path: Path) -> Mapping[str, Any]:
@@ -171,6 +181,28 @@ def _parse_horizon(raw: Mapping[str, Any]) -> int:
     return horizon
 
 
+def _parse_day_list(raw: Mapping[str, Any], key: str, minimum: int) -> tuple[int, ...]:
+    """Read a non-empty list of unique day counts."""
+    values = _field(raw, key, list)
+    valid = all(type(value) is int and value >= minimum for value in values)
+    if not values or not valid or len(values) != len(set(values)):
+        raise ConfigError(f"{key} must be unique integers of at least {minimum}")
+    return tuple(values)
+
+
+def _parse_gold(raw: Mapping[str, Any]) -> GoldSettings:
+    """Build the gold dataset settings."""
+    gold = _as_mapping(_field(raw, "gold", Mapping), "gold")
+    max_fill_hours = _field(gold, "max_fill_hours", int)
+    if max_fill_hours < 0:
+        raise ConfigError("max_fill_hours cannot be negative")
+    return GoldSettings(
+        max_fill_hours=max_fill_hours,
+        lag_days=_parse_day_list(gold, "lag_days", 1),
+        rolling_days=_parse_day_list(gold, "rolling_days", 2),
+    )
+
+
 def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
     """Load and validate settings from a config directory."""
     resolved_dir = config_dir.resolve()
@@ -181,4 +213,5 @@ def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
         active_city=_find_city(cities, _field(data, "active_city", str)),
         storage=_parse_storage(data, resolved_dir.parent),
         horizon_days=_parse_horizon(data),
+        gold=_parse_gold(data),
     )
