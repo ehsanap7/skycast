@@ -32,6 +32,13 @@ gold:
   max_fill_hours: 3
   lag_days: [1]
   rolling_days: [2]
+ingestion:
+  archive_url: https://archive.example.test/v1/archive
+  archive_model: sample-model
+  recent_url: https://recent.example.test/v1/forecast
+  recent_forecast_days: 1
+  max_past_days: 92
+  timeout_seconds: 60
 """
 
 
