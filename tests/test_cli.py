@@ -1,6 +1,7 @@
 """Tests for the SkyCast command-line entry point."""
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -84,6 +85,15 @@ def test_main_prints_hello_world(capsys: pytest.CaptureFixture[str]) -> None:
     assert exit_code == 0
     assert captured.out == f"Hello from SkyCast v{__version__}!\n"
     assert captured.err == ""
+
+
+def test_commands_hide_http_request_logs(tmp_path: Path) -> None:
+    """Routine HTTP polling does not flood command logs."""
+    logging.getLogger("httpx").setLevel(logging.NOTSET)
+
+    main(build_args(write_project(tmp_path)))
+
+    assert logging.getLogger("httpx").level == logging.WARNING
 
 
 def test_version_is_set() -> None:
