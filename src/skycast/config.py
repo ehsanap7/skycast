@@ -62,6 +62,16 @@ class IngestionSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduleSettings:
+    """When ingestion runs and how it retries."""
+
+    recent_cron: str
+    archive_cron: str
+    retries: int
+    retry_base_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
     """All settings needed by the data section."""
 
@@ -71,6 +81,7 @@ class Settings:
     horizon_days: int
     gold: GoldSettings
     ingestion: IngestionSettings
+    schedule: ScheduleSettings
 
 
 def _read_yaml(path: Path) -> Mapping[str, Any]:
@@ -253,6 +264,25 @@ def _parse_ingestion(raw: Mapping[str, Any]) -> IngestionSettings:
     )
 
 
+def _parse_cron(raw: Mapping[str, Any], key: str) -> str:
+    """Read a five-field cron expression."""
+    cron = _field(raw, key, str)
+    if len(cron.split()) != 5:
+        raise ConfigError(f"{key} must have five cron fields")
+    return cron
+
+
+def _parse_schedule(raw: Mapping[str, Any]) -> ScheduleSettings:
+    """Build the ingestion schedule settings."""
+    schedule = _as_mapping(_field(raw, "schedule", Mapping), "schedule")
+    return ScheduleSettings(
+        recent_cron=_parse_cron(schedule, "recent_cron"),
+        archive_cron=_parse_cron(schedule, "archive_cron"),
+        retries=_parse_int_range(schedule, "retries", 1, 10),
+        retry_base_seconds=_parse_int_range(schedule, "retry_base_seconds", 0, 3600),
+    )
+
+
 def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
     """Load and validate settings from a config directory."""
     resolved_dir = config_dir.resolve()
@@ -265,4 +295,5 @@ def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
         horizon_days=_parse_horizon(data),
         gold=_parse_gold(data),
         ingestion=_parse_ingestion(data),
+        schedule=_parse_schedule(data),
     )

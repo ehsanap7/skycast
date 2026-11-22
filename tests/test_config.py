@@ -35,6 +35,11 @@ ingestion:
   recent_forecast_days: 1
   max_past_days: 92
   timeout_seconds: 60
+schedule:
+  recent_cron: "10 */4 * * *"
+  archive_cron: "40 6 * * *"
+  retries: 3
+  retry_base_seconds: 30
 """
 
 
@@ -128,6 +133,10 @@ def test_duplicate_city_raises_config_error(tmp_path: Path) -> None:
         ("max_past_days: 92", "max_past_days: 93", "max_past_days"),
         ("timeout_seconds: 60", "timeout_seconds: 0", "timeout_seconds"),
         ("  archive_model: sample-model\n", "", "archive_model"),
+        ('recent_cron: "10 */4 * * *"', 'recent_cron: "10 */4"', "recent_cron"),
+        ('archive_cron: "40 6 * * *"', "archive_cron: 40", "archive_cron"),
+        ("retries: 3", "retries: 0", "retries"),
+        ("retry_base_seconds: 30", "retry_base_seconds: -1", "retry_base_seconds"),
     ],
 )
 def test_invalid_data_config_raises_config_error(
