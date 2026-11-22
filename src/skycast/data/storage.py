@@ -1,5 +1,6 @@
 """Storage interface and local filesystem implementation."""
 
+import os
 from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
@@ -26,6 +27,10 @@ class DatasetStore(Protocol):
 
     def write_bytes(self, key: str, content: bytes) -> None:
         """Store content at a key."""
+        ...
+
+    def create_bytes(self, key: str, content: bytes) -> None:
+        """Store content only if the key does not exist."""
         ...
 
     def exists(self, key: str) -> bool:
@@ -60,6 +65,17 @@ class LocalStore:
         except OSError as err:
             raise StorageError(f"Cannot write dataset {key!r}: {err}") from err
 
+    def create_bytes(self, key: str, content: bytes) -> None:
+        """Store content atomically only if the key does not exist."""
+        path = self._path_for(key)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _create_atomically(path, content)
+        except FileExistsError as err:
+            raise StorageError(f"Dataset already exists: {key!r}") from err
+        except OSError as err:
+            raise StorageError(f"Cannot create dataset {key!r}: {err}") from err
+
     def exists(self, key: str) -> bool:
         """Tell whether a key holds a dataset."""
         return self._path_for(key).is_file()
@@ -82,12 +98,27 @@ class LocalStore:
         return path
 
 
+def _temporary_path(path: Path) -> Path:
+    """Build a hidden temporary path beside a file."""
+    return path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+
+
 def _replace_atomically(path: Path, content: bytes) -> None:
     """Write a temporary file, then swap it into place."""
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    temporary = _temporary_path(path)
     try:
         temporary.write_bytes(content)
         temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _create_atomically(path: Path, content: bytes) -> None:
+    """Write a temporary file, then link it only if the target is free."""
+    temporary = _temporary_path(path)
+    try:
+        temporary.write_bytes(content)
+        os.link(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -101,4 +132,8 @@ def build_store(settings: StorageSettings) -> DatasetStore:
     """Create the configured storage backend."""
     if settings.backend == "local":
         return LocalStore(settings.root)
+    if settings.backend == "s3":
+        from skycast.data.s3_store import create_s3_store
+
+        return create_s3_store(settings.bucket)
     raise ConfigError(f"Unsupported storage backend: {settings.backend!r}")

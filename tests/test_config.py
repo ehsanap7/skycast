@@ -121,6 +121,11 @@ def test_duplicate_city_raises_config_error(tmp_path: Path) -> None:
         ("active_city: sample-city", "active_city: other", "not configured"),
         ("horizon_days: 7", "horizon_days: 0", "at least 1"),
         ("  root: datasets\n", "", "root"),
+        (
+            "  root: datasets\n",
+            "  root: datasets\n  bucket: Bad_Bucket\n",
+            "Invalid storage bucket",
+        ),
         ("max_fill_hours: 3", "max_fill_hours: -1", "cannot be negative"),
         ("lag_days: [1, 2]", "lag_days: []", "lag_days"),
         ("lag_days: [1, 2]", "lag_days: [1, 1]", "lag_days"),

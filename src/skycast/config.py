@@ -15,6 +15,8 @@ from skycast.errors import ConfigError
 DEFAULT_CONFIG_DIR = Path("config")
 SLUG_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 SOURCE_FILE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.csv")
+BUCKET_PATTERN = re.compile(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]")
+DEFAULT_BUCKET = "skycast"
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,7 @@ class StorageSettings:
 
     backend: str
     root: Path
+    bucket: str = DEFAULT_BUCKET
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,11 +192,25 @@ def _find_city(cities: tuple[City, ...], slug: str) -> City:
     raise ConfigError(f"Active city is not configured: {slug!r}")
 
 
+def _parse_bucket(storage: Mapping[str, Any]) -> str:
+    """Read a valid bucket name, or use the default."""
+    if "bucket" not in storage:
+        return DEFAULT_BUCKET
+    bucket = _field(storage, "bucket", str)
+    if not BUCKET_PATTERN.fullmatch(bucket):
+        raise ConfigError(f"Invalid storage bucket: {bucket!r}")
+    return bucket
+
+
 def _parse_storage(raw: Mapping[str, Any], project_root: Path) -> StorageSettings:
     """Build storage settings with an absolute root."""
     storage = _as_mapping(_field(raw, "storage", Mapping), "storage")
     root = project_root / _field(storage, "root", str)
-    return StorageSettings(backend=_field(storage, "backend", str), root=root)
+    return StorageSettings(
+        backend=_field(storage, "backend", str),
+        root=root,
+        bucket=_parse_bucket(storage),
+    )
 
 
 def _parse_horizon(raw: Mapping[str, Any]) -> int:
