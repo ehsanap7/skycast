@@ -2,11 +2,13 @@
 
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
 import pandas as pd
 
 from skycast.config import City
+from skycast.data.batch_reader import BronzeBatch
 from skycast.data.contracts import (
     CITY_COLUMN,
     MEASUREMENT_RANGES,
@@ -16,12 +18,19 @@ from skycast.data.contracts import (
     SOURCE_COLUMN,
     TIME_COLUMN,
     TIMESTAMP_FORMAT,
+    SourceKind,
 )
 from skycast.data.parquet import read_parquet_bytes, to_parquet_bytes
 from skycast.data.storage import DatasetStore, Layer, dataset_key
 from skycast.errors import DataSourceError
 
 logger = logging.getLogger(__name__)
+
+SOURCE_RANK = "_source_rank"
+FETCH_RANK = "_fetch_rank"
+RECENT_RANK = 0
+ARCHIVE_RANK = 1
+SEED_FETCH_RANK = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +46,8 @@ class QualityReport:
     null_values: dict[str, int]
     out_of_range: dict[str, int]
     rows_by_source: dict[str, int]
+    batches_used: int
+    recent_replaced_by_archive: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +78,34 @@ def _typed_frame(bronze: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({TIME_COLUMN: times, **measurements})
 
 
+def _ranked_seed(bronze: pd.DataFrame, city: City) -> pd.DataFrame:
+    """Rank seed rows by the archive cutoff."""
+    typed = _typed_frame(bronze)
+    source_ranks = typed[TIME_COLUMN].le(city.archive_cutoff).astype(int)
+    return typed.assign(**{SOURCE_RANK: source_ranks, FETCH_RANK: SEED_FETCH_RANK})
+
+
+def _ranked_batches(batches: Sequence[BronzeBatch]) -> list[pd.DataFrame]:
+    """Rank batch rows by source and fetch order."""
+    ordered = sorted(batches, key=lambda batch: batch.fetched_at)
+    return [
+        batch.hourly.assign(
+            **{
+                SOURCE_RANK: ARCHIVE_RANK if batch.kind is SourceKind.ARCHIVE else RECENT_RANK,
+                FETCH_RANK: position,
+            }
+        )
+        for position, batch in enumerate(ordered, start=SEED_FETCH_RANK + 1)
+    ]
+
+
+def _combine_sources(
+    bronze: pd.DataFrame, batches: Sequence[BronzeBatch], city: City
+) -> pd.DataFrame:
+    """Stack seed and batch rows with their priorities."""
+    return pd.concat([_ranked_seed(bronze, city), *_ranked_batches(batches)], ignore_index=True)
+
+
 def _require_whole_hours(frame: pd.DataFrame) -> None:
     """Reject timestamps that do not fall exactly on an hour."""
     times = frame[TIME_COLUMN]
@@ -76,9 +115,17 @@ def _require_whole_hours(frame: pd.DataFrame) -> None:
 
 
 def _remove_duplicates(frame: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-    """Keep the last row for each timestamp."""
-    unique = frame.drop_duplicates(subset=TIME_COLUMN, keep="last")
+    """Keep the highest-priority row for each timestamp."""
+    ordered = frame.sort_values([TIME_COLUMN, SOURCE_RANK, FETCH_RANK], kind="stable")
+    unique = ordered.drop_duplicates(subset=TIME_COLUMN, keep="last")
     return unique, len(frame) - len(unique)
+
+
+def _recent_replaced(combined: pd.DataFrame, unique: pd.DataFrame) -> int:
+    """Count hours where an archive value replaced a recent one."""
+    recent = combined.loc[combined[SOURCE_RANK].eq(RECENT_RANK), TIME_COLUMN]
+    archive = unique.loc[unique[SOURCE_RANK].eq(ARCHIVE_RANK), TIME_COLUMN]
+    return int(recent[recent.isin(archive)].nunique())
 
 
 def _complete_timeline(frame: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -100,18 +147,16 @@ def _apply_ranges(frame: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
     return clean, counts
 
 
-def _source_labels(times: pd.Series, city: City) -> pd.Series:
-    """Label each hour as archive or recent data."""
-    labels = {True: city.archive_source, False: city.recent_source}
-    return times.le(city.archive_cutoff).map(labels)
+def _source_labels(frame: pd.DataFrame, city: City) -> pd.Series:
+    """Label each hour with the source that supplied it."""
+    missing_archive = frame[SOURCE_RANK].isna() & frame[TIME_COLUMN].le(city.archive_cutoff)
+    is_archive = frame[SOURCE_RANK].eq(ARCHIVE_RANK) | missing_archive
+    return is_archive.map({True: city.archive_source, False: city.recent_source})
 
 
 def _add_identity(frame: pd.DataFrame, city: City) -> pd.DataFrame:
     """Add city and source columns in contract order."""
-    identity = {
-        CITY_COLUMN: city.slug,
-        SOURCE_COLUMN: _source_labels(frame[TIME_COLUMN], city),
-    }
+    identity = {CITY_COLUMN: city.slug, SOURCE_COLUMN: _source_labels(frame, city)}
     return frame.assign(**identity)[list(SILVER_COLUMNS)]
 
 
@@ -125,16 +170,18 @@ def _null_counts(frame: pd.DataFrame) -> dict[str, int]:
     return {column: int(frame[column].isna().sum()) for column in MEASUREMENT_RANGES}
 
 
-def build_silver(bronze: pd.DataFrame, city: City) -> SilverDataset:
-    """Turn validated bronze data into clean hourly data."""
-    typed = _typed_frame(bronze)
-    _require_whole_hours(typed)
-    unique, duplicates = _remove_duplicates(typed)
+def build_silver(
+    bronze: pd.DataFrame, city: City, batches: Sequence[BronzeBatch] = ()
+) -> SilverDataset:
+    """Merge bronze sources into clean hourly data."""
+    combined = _combine_sources(bronze, batches, city)
+    _require_whole_hours(combined)
+    unique, duplicates = _remove_duplicates(combined)
     complete, missing = _complete_timeline(unique)
     clean, out_of_range = _apply_ranges(complete)
     frame = _add_identity(clean, city)
     report = QualityReport(
-        source_rows=len(bronze),
+        source_rows=len(combined),
         rows=len(frame),
         duplicates_removed=duplicates,
         missing_hours=missing,
@@ -143,6 +190,8 @@ def build_silver(bronze: pd.DataFrame, city: City) -> SilverDataset:
         null_values=_null_counts(frame),
         out_of_range=out_of_range,
         rows_by_source=_source_counts(frame),
+        batches_used=len(batches),
+        recent_replaced_by_archive=_recent_replaced(combined, unique),
     )
     return SilverDataset(frame=frame, report=report)
 

@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from skycast.config import City, GoldSettings
+from skycast.data.batch_reader import batch_manifest_keys
 from skycast.data.contracts import (
     CITY_COLUMN,
     DATE_COLUMN,
@@ -74,6 +75,13 @@ def _sha256(store: DatasetStore, key: str) -> str:
     return hashlib.sha256(store.read_bytes(key)).hexdigest()
 
 
+def _batch_lineage(store: DatasetStore, city: City) -> dict[str, Any]:
+    """Fingerprint the raw batches behind a dataset."""
+    keys = batch_manifest_keys(store, city)
+    manifests = b"".join(store.read_bytes(key) for key in keys)
+    return {"batch_count": len(keys), "batches_sha256": hashlib.sha256(manifests).hexdigest()}
+
+
 def _build_metadata(
     store: DatasetStore,
     city: City,
@@ -88,6 +96,7 @@ def _build_metadata(
         "city": city.slug,
         "source_file": city.source_file,
         "source_sha256": _sha256(store, dataset_key(Layer.BRONZE, city.slug, city.source_file)),
+        **_batch_lineage(store, city),
         "silver_sha256": _sha256(store, dataset_key(Layer.SILVER, city.slug, SILVER_DATA_FILE)),
         "archive_source": city.archive_source,
         "archive_cutoff": city.archive_cutoff.isoformat(),
