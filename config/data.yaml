@@ -3,6 +3,7 @@ active_city: toronto
 storage:
   backend: local
   root: data
+  bucket: skycast
 
 forecast:
   horizon_days: 7

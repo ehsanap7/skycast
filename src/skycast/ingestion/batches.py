@@ -64,6 +64,6 @@ def save_batch(
     if store.exists(key) or store.exists(receipt):
         raise StorageError(f"Raw batch already exists: {key}")
     manifest = _build_manifest(kind, raw, selected, fetched_at)
-    store.write_bytes(key, raw)
-    store.write_bytes(receipt, (json.dumps(asdict(manifest), indent=2) + "\n").encode())
+    store.create_bytes(key, raw)
+    store.create_bytes(receipt, (json.dumps(asdict(manifest), indent=2) + "\n").encode())
     return key

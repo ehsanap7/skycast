@@ -36,6 +36,12 @@ class FailingStore(LocalStore):
             raise StorageError(f"Simulated failure for {key}")
         super().write_bytes(key, content)
 
+    def create_bytes(self, key: str, content: bytes) -> None:
+        """Fail for matching keys and create the others."""
+        if key.endswith(self._suffix):
+            raise StorageError(f"Simulated failure for {key}")
+        super().create_bytes(key, content)
+
 
 @pytest.fixture
 def response(make_hourly: HourlyFactory) -> WeatherResponse:
