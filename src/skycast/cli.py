@@ -89,6 +89,22 @@ def _schedule_data(args: argparse.Namespace) -> int:
     return _guarded(lambda: _start_schedules(args.config_dir), "Data schedule")
 
 
+def _run_migration(config_dir: Path) -> None:
+    """Copy local data to object storage and report it."""
+    from skycast.data.migration import run_migration
+
+    summary = run_migration(load_settings(config_dir))
+    print(f"Files verified: {summary.files:,}")
+    print(f"Copied:         {summary.copied:,}")
+    print(f"Already there:  {summary.already_present:,}")
+    print(f"Bytes verified: {summary.bytes_verified:,}")
+
+
+def _migrate_data(args: argparse.Namespace) -> int:
+    """Copy local datasets into object storage."""
+    return _guarded(lambda: _run_migration(args.config_dir), "Data migration")
+
+
 def _add_command(
     actions: argparse._SubParsersAction,
     name: str,
@@ -113,6 +129,7 @@ def _build_parser() -> argparse.ArgumentParser:
     update = _add_command(actions, "update", "fetch one source and rebuild", _update_data)
     update.add_argument("--source", required=True, choices=[kind.value for kind in SourceKind])
     _add_command(actions, "schedule", "run scheduled updates until stopped", _schedule_data)
+    _add_command(actions, "migrate", "copy local data to object storage", _migrate_data)
     return parser
 
 
