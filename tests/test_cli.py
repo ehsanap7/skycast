@@ -42,6 +42,11 @@ ingestion:
   recent_forecast_days: 1
   max_past_days: 92
   timeout_seconds: 60
+schedule:
+  recent_cron: "10 */4 * * *"
+  archive_cron: "40 6 * * *"
+  retries: 3
+  retry_base_seconds: 0
 """
 
 

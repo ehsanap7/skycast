@@ -113,6 +113,27 @@ uv run skycast data build
 This validates bronze and writes clean hourly Parquet to `data/silver/` and model-ready Parquet to
 `data/gold/`. Dataset files stay local and are ignored by git. The command is safe to rerun.
 
+### Update the data
+
+Run one update now:
+
+```bash
+uv run skycast data update --source recent
+uv run skycast data update --source archive
+```
+
+Or run both on their configured schedules with Prefect:
+
+```bash
+uv sync --extra orchestration
+uv run prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api  # once
+
+uv run prefect server start      # terminal 1, UI at http://127.0.0.1:4200
+uv run skycast data schedule     # terminal 2
+```
+
+Scheduled runs execute one at a time. Do not run a manual update while the scheduler is active.
+
 ### Development commands
 
 ```bash
