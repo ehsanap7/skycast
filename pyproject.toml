@@ -16,6 +16,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
+    "numpy>=2.5.5",
     "pandas>=3.1.1",
     "pyarrow>=26.0.1",
     "pyyaml>=6.0.3",

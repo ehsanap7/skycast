@@ -24,6 +24,10 @@ storage:
   root: datasets
 forecast:
   horizon_days: 7
+gold:
+  max_fill_hours: 3
+  lag_days: [1, 2]
+  rolling_days: [3, 7]
 """
 
 
@@ -105,6 +109,12 @@ def test_duplicate_city_raises_config_error(tmp_path: Path) -> None:
         ("active_city: sample-city", "active_city: other", "not configured"),
         ("horizon_days: 7", "horizon_days: 0", "at least 1"),
         ("  root: datasets\n", "", "root"),
+        ("max_fill_hours: 3", "max_fill_hours: -1", "cannot be negative"),
+        ("lag_days: [1, 2]", "lag_days: []", "lag_days"),
+        ("lag_days: [1, 2]", "lag_days: [1, 1]", "lag_days"),
+        ("lag_days: [1, 2]", "lag_days: [0, 1]", "lag_days"),
+        ("rolling_days: [3, 7]", "rolling_days: [1, 7]", "rolling_days"),
+        ("rolling_days: [3, 7]", "rolling_days: [3, true]", "rolling_days"),
     ],
 )
 def test_invalid_data_config_raises_config_error(
