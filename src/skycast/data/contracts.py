@@ -39,6 +39,11 @@ SILVER_COLUMNS: tuple[str, ...] = (
     *MEASUREMENT_RANGES,
 )
 
+API_TIMEZONE = "GMT"
+API_TIME_FORMAT = "%Y-%m-%dT%H:%M"
+API_WIND_SPEED_UNIT = "ms"
+API_WIND_SPEED_LABEL = "m/s"
+
 DATE_COLUMN = "date"
 GOLD_CONTRACT_VERSION = "1.0.0"
 GOLD_DATA_FILE = "training.parquet"
