@@ -3,6 +3,7 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -26,6 +27,9 @@ class City:
     longitude: float
     timezone: str
     source_file: str
+    archive_source: str
+    recent_source: str
+    archive_cutoff: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +110,18 @@ def _parse_source_file(raw: Mapping[str, Any]) -> str:
     return source_file
 
 
+def _parse_archive_cutoff(raw: Mapping[str, Any]) -> datetime:
+    """Read the last archive timestamp as an explicit UTC time."""
+    text = _field(raw, "archive_cutoff", str)
+    try:
+        cutoff = datetime.fromisoformat(text)
+    except ValueError as err:
+        raise ConfigError(f"Invalid archive cutoff: {text!r}") from err
+    if cutoff.utcoffset() != timedelta(0):
+        raise ConfigError(f"Archive cutoff must be UTC: {text!r}")
+    return cutoff
+
+
 def _parse_city(value: Any) -> City:
     """Build a city from its raw config."""
     raw = _as_mapping(value, "City entry")
@@ -116,6 +132,9 @@ def _parse_city(value: Any) -> City:
         longitude=_parse_coordinate(raw, "longitude", 180),
         timezone=_parse_timezone(raw),
         source_file=_parse_source_file(raw),
+        archive_source=_field(raw, "archive_source", str),
+        recent_source=_field(raw, "recent_source", str),
+        archive_cutoff=_parse_archive_cutoff(raw),
     )
 
 
