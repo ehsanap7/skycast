@@ -149,6 +149,28 @@ docker compose down              # stop, keeping data and run history
 The Prefect UI is available at <http://127.0.0.1:4200>. `data/` is shared with the scheduler,
 `config/` is read-only, and Prefect history is stored in a Docker volume.
 
+### Move data to object storage
+
+SeaweedFS provides S3-compatible storage through the optional `storage` Compose profile. Its files
+live in the git-ignored `object-store/` folder.
+
+```bash
+cp .env.example .env             # then fill in both keys with: openssl rand -hex 24
+docker compose down              # stop the scheduler so data cannot change during the copy
+docker compose up -d seaweedfs
+uv run --env-file .env skycast data migrate   # copy and verify every file, safe to rerun
+```
+
+After the migration succeeds, set `storage.backend` to `s3` in `config/data.yaml`, then run:
+
+```bash
+uv run --env-file .env skycast data build
+docker compose up -d --build
+```
+
+The migration never deletes `data/`. To roll back, set the backend to `local` and restart. Updates
+made while using `s3` exist only in object storage.
+
 ### Development commands
 
 ```bash
