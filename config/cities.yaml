@@ -4,4 +4,7 @@ cities:
     latitude: 43.6532
     longitude: -79.3832
     timezone: America/Toronto
-    source_file: toronto.csv
+    source_file: toronto_weather.csv
+    archive_source: open-meteo-era5
+    recent_source: open-meteo-forecast
+    archive_cutoff: "2026-11-15T23:00:00+00:00"

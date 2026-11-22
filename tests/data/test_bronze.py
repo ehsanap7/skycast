@@ -1,5 +1,6 @@
 """Tests for bronze loading and validation."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,17 @@ from skycast.data.contracts import BRONZE_COLUMNS
 from skycast.data.storage import LocalStore
 from skycast.errors import DataSourceError
 
-CITY = City("sample", "Sample", 1.0, 2.0, "UTC", "sample.csv")
+CITY = City(
+    slug="sample",
+    name="Sample",
+    latitude=1.0,
+    longitude=2.0,
+    timezone="UTC",
+    source_file="sample.csv",
+    archive_source="archive-source",
+    recent_source="recent-source",
+    archive_cutoff=datetime(2010, 1, 1, 12, tzinfo=UTC),
+)
 KEY = "bronze/city=sample/sample.csv"
 HEADER = ",".join(BRONZE_COLUMNS)
 ROW = "2010-01-01 00:00:00+00:00,1.6,93,0.6,0.0,1013.7,94,2.8,215"

@@ -14,6 +14,9 @@ VALID_CITY = """cities:
     longitude: -20.5
     timezone: UTC
     source_file: sample.csv
+    archive_source: archive-source
+    recent_source: recent-source
+    archive_cutoff: "2010-01-01T12:00:00+00:00"
 """
 VALID_DATA = """active_city: sample-city
 storage:
@@ -72,6 +75,11 @@ def test_malformed_yaml_raises_config_error(tmp_path: Path) -> None:
         ("timezone: UTC", "timezone: Mars/Base", "Invalid timezone"),
         ("source_file: sample.csv", "source_file: ../sample.csv", "Invalid source file"),
         ("source_file: sample.csv", "source_file: sample.txt", "Invalid source file"),
+        ("    archive_source: archive-source\n", "", "archive_source"),
+        ("    recent_source: recent-source\n", "", "recent_source"),
+        ("2010-01-01T12:00:00+00:00", "not-a-date", "Invalid archive cutoff"),
+        ("2010-01-01T12:00:00+00:00", "2010-01-01T12:00:00", "must be UTC"),
+        ("2010-01-01T12:00:00+00:00", "2010-01-01T12:00:00-05:00", "must be UTC"),
         ("latitude: 10.5", "latitude: true", "invalid type"),
     ],
 )
