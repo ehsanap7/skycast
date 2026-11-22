@@ -28,6 +28,13 @@ gold:
   max_fill_hours: 3
   lag_days: [1, 2]
   rolling_days: [3, 7]
+ingestion:
+  archive_url: https://archive.example.test/v1/archive
+  archive_model: sample-model
+  recent_url: https://recent.example.test/v1/forecast
+  recent_forecast_days: 1
+  max_past_days: 92
+  timeout_seconds: 60
 """
 
 
@@ -115,6 +122,12 @@ def test_duplicate_city_raises_config_error(tmp_path: Path) -> None:
         ("lag_days: [1, 2]", "lag_days: [0, 1]", "lag_days"),
         ("rolling_days: [3, 7]", "rolling_days: [1, 7]", "rolling_days"),
         ("rolling_days: [3, 7]", "rolling_days: [3, true]", "rolling_days"),
+        ("https://archive.example", "http://archive.example", "archive_url"),
+        ("https://recent.example", "ftp://recent.example", "recent_url"),
+        ("recent_forecast_days: 1", "recent_forecast_days: 17", "recent_forecast_days"),
+        ("max_past_days: 92", "max_past_days: 93", "max_past_days"),
+        ("timeout_seconds: 60", "timeout_seconds: 0", "timeout_seconds"),
+        ("  archive_model: sample-model\n", "", "archive_model"),
     ],
 )
 def test_invalid_data_config_raises_config_error(

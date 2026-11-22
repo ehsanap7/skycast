@@ -50,6 +50,18 @@ class GoldSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class IngestionSettings:
+    """How weather data is requested from the APIs."""
+
+    archive_url: str
+    archive_model: str
+    recent_url: str
+    recent_forecast_days: int
+    max_past_days: int
+    timeout_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
     """All settings needed by the data section."""
 
@@ -58,6 +70,7 @@ class Settings:
     storage: StorageSettings
     horizon_days: int
     gold: GoldSettings
+    ingestion: IngestionSettings
 
 
 def _read_yaml(path: Path) -> Mapping[str, Any]:
@@ -203,6 +216,43 @@ def _parse_gold(raw: Mapping[str, Any]) -> GoldSettings:
     )
 
 
+def _parse_https_url(raw: Mapping[str, Any], key: str) -> str:
+    """Read a URL that must use HTTPS."""
+    url = _field(raw, key, str)
+    if not url.startswith("https://"):
+        raise ConfigError(f"{key} must be an HTTPS URL")
+    return url
+
+
+def _parse_int_range(raw: Mapping[str, Any], key: str, low: int, high: int) -> int:
+    """Read an integer within an allowed range."""
+    value = _field(raw, key, int)
+    if not low <= value <= high:
+        raise ConfigError(f"{key} must be between {low} and {high}")
+    return value
+
+
+def _parse_timeout(raw: Mapping[str, Any]) -> float:
+    """Read a positive timeout in seconds."""
+    timeout = float(_field(raw, "timeout_seconds", (int, float)))
+    if timeout <= 0:
+        raise ConfigError("timeout_seconds must be positive")
+    return timeout
+
+
+def _parse_ingestion(raw: Mapping[str, Any]) -> IngestionSettings:
+    """Build the API ingestion settings."""
+    ingestion = _as_mapping(_field(raw, "ingestion", Mapping), "ingestion")
+    return IngestionSettings(
+        archive_url=_parse_https_url(ingestion, "archive_url"),
+        archive_model=_field(ingestion, "archive_model", str),
+        recent_url=_parse_https_url(ingestion, "recent_url"),
+        recent_forecast_days=_parse_int_range(ingestion, "recent_forecast_days", 1, 16),
+        max_past_days=_parse_int_range(ingestion, "max_past_days", 1, 92),
+        timeout_seconds=_parse_timeout(ingestion),
+    )
+
+
 def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
     """Load and validate settings from a config directory."""
     resolved_dir = config_dir.resolve()
@@ -214,4 +264,5 @@ def load_settings(config_dir: Path = DEFAULT_CONFIG_DIR) -> Settings:
         storage=_parse_storage(data, resolved_dir.parent),
         horizon_days=_parse_horizon(data),
         gold=_parse_gold(data),
+        ingestion=_parse_ingestion(data),
     )

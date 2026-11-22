@@ -156,6 +156,21 @@ All work follows **Issue → Branch → Commits → Pull Request → Review → 
 - `main` is protected: changes land only through reviewed pull requests.
 - Secrets live in a git-ignored `.env` file; never commit credentials.
 
+## Data attribution
+
+Weather data is provided by [Open-Meteo](https://open-meteo.com/) under the
+[CC BY 4.0 licence](https://creativecommons.org/licenses/by/4.0/). Historical data comes from the
+ERA5 reanalysis. Generated using Copernicus Climate Change Service information 2022.
+
+SkyCast modifies this data by validating and cleaning values, aggregating hours into local days,
+and deriving forecasting features and targets. The MIT License below covers this project's code,
+not the weather data.
+
+- Zippenfenig, P. (2023). *Open-Meteo.com Weather API*. Zenodo.
+  <https://doi.org/10.5281/ZENODO.7970649>
+- Hersbach, H. et al. (2023). *ERA5 hourly data on single levels from 1940 to present*. Copernicus
+  Climate Change Service (C3S) Climate Data Store. <https://doi.org/10.24381/cds.adbb2d47>
+
 ## License
 
 Released under the [MIT License](LICENSE).
