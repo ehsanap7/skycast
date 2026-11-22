@@ -42,6 +42,7 @@ def _print_update(summary: UpdateSummary) -> None:
 def _guarded(action: Callable[[], None], description: str) -> int:
     """Run a command and turn failures into an exit code."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     try:
         action()
     except SkyCastError as err:

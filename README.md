@@ -134,6 +134,21 @@ uv run skycast data schedule     # terminal 2
 
 Scheduled runs execute one at a time. Do not run a manual update while the scheduler is active.
 
+### Run with Docker
+
+Stop any local `skycast data schedule` first, because only one scheduler should use `data/`.
+
+```bash
+docker compose up -d --build     # build and start in the background
+docker compose ps                # check service health
+docker compose logs -f           # follow logs
+docker compose up -d --build     # rebuild after code changes
+docker compose down              # stop, keeping data and run history
+```
+
+The Prefect UI is available at <http://127.0.0.1:4200>. `data/` is shared with the scheduler,
+`config/` is read-only, and Prefect history is stored in a Docker volume.
+
 ### Development commands
 
 ```bash

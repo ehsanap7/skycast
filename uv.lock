@@ -1888,6 +1888,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pyyaml" },
+    { name = "tzdata" },
 ]
 
 [package.optional-dependencies]
@@ -1911,6 +1912,7 @@ requires-dist = [
     { name = "prefect", marker = "extra == 'orchestration'", specifier = ">=3.9.4,<4" },
     { name = "pyarrow", specifier = ">=26.0.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "tzdata", specifier = ">=2026.6" },
 ]
 provides-extras = ["orchestration"]
 
