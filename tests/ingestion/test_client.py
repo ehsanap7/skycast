@@ -11,7 +11,7 @@ import pytest
 
 from skycast.config import City, IngestionSettings
 from skycast.data.contracts import MEASUREMENT_RANGES
-from skycast.errors import DataSourceError
+from skycast.errors import DataSourceError, TemporarySourceError
 from skycast.ingestion.client import WeatherClient, WeatherResponse
 
 CITY = City(
@@ -147,6 +147,32 @@ def test_network_failure_is_wrapped() -> None:
     with pytest.raises(DataSourceError, match="request failed") as caught:
         fetch(handler)
     assert isinstance(caught.value.__cause__, httpx.ReadTimeout)
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_retryable_status_is_temporary(status: int) -> None:
+    """Rate limits and server errors may succeed later."""
+    with pytest.raises(TemporarySourceError, match=str(status)):
+        fetch(lambda _request: httpx.Response(status, text="Try later"))
+
+
+@pytest.mark.parametrize("status", [400, 404])
+def test_client_error_is_not_temporary(status: int) -> None:
+    """A bad request cannot be fixed by retrying."""
+    with pytest.raises(DataSourceError) as caught:
+        fetch(lambda _request: httpx.Response(status, text="Bad request"))
+    assert not isinstance(caught.value, TemporarySourceError)
+
+
+def test_network_failure_is_temporary() -> None:
+    """A dropped connection may succeed later."""
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        """Simulate a dropped connection."""
+        raise httpx.ConnectError("connection failed")
+
+    with pytest.raises(TemporarySourceError, match="request failed"):
+        fetch(handler)
 
 
 def test_invalid_json_raises() -> None:

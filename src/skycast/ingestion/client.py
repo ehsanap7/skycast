@@ -10,7 +10,7 @@ import pandas as pd
 from skycast.config import City, IngestionSettings
 from skycast.data.api_response import parse_weather_response
 from skycast.data.contracts import API_TIMEZONE, API_WIND_SPEED_UNIT, MEASUREMENT_RANGES
-from skycast.errors import DataSourceError
+from skycast.errors import DataSourceError, TemporarySourceError
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +28,14 @@ def _error_reason(response: httpx.Response) -> str:
     except ValueError:
         return response.text[:200]
     return str(payload.get("reason", "unknown")) if isinstance(payload, dict) else "unknown"
+
+
+def _status_error(response: httpx.Response) -> DataSourceError:
+    """Build the right error for a failed HTTP status."""
+    message = f"Weather API returned {response.status_code}: {_error_reason(response)}"
+    if response.status_code == 429 or response.is_server_error:
+        return TemporarySourceError(message)
+    return DataSourceError(message)
 
 
 def _parse_response(raw: bytes) -> WeatherResponse:
@@ -83,9 +91,10 @@ class WeatherClient:
         """Send one request and return its successful body."""
         try:
             response = self._http.get(url, params=dict(params))
+        except httpx.TransportError as err:
+            raise TemporarySourceError(f"Weather API request failed: {err}") from err
         except httpx.HTTPError as err:
             raise DataSourceError(f"Weather API request failed: {err}") from err
         if response.is_error:
-            reason = _error_reason(response)
-            raise DataSourceError(f"Weather API returned {response.status_code}: {reason}")
+            raise _status_error(response)
         return response.content
