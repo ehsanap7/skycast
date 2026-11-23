@@ -2,6 +2,9 @@
 
 Dataset files in this folder are ignored by git. Only this README is tracked.
 
+SeaweedFS is the active dataset store. This folder is the backup from the migration, and scheduled
+jobs do not update it while `storage.backend` is `s3`.
+
 ```text
 data/
   bronze/city=<slug>/   # original source files, never edited

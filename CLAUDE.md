@@ -122,7 +122,7 @@ its own approval.
 | CI | GitHub Actions, required check `Lint & test` | Nothing broken reaches `main` |
 | Branch protection | Ruleset: PR required, squash-only, 0 approvals, no bypass | Solo repo that still follows its own rules |
 | Data boundary | One package, `skycast.data`; models read only the gold contract | Storage and ingestion can change without touching model code |
-| Data layers | Bronze CSV → silver Parquet → gold Parquet, stored locally for now | Raw stays immutable and every later layer can be rebuilt |
+| Data layers | Bronze CSV → silver Parquet → gold Parquet | Raw stays immutable and every later layer can be rebuilt |
 | Historical source | Open-Meteo ERA5, hourly, UTC, wind speed in m/s | Consistent hourly history from 2010 |
 | Current scope | One configured city (Toronto) | Start small while keeping cities as configuration |
 | Prediction target | Daily high and low temperature for days 1 to 7 | Useful, explainable, and easy to compare with a baseline |
@@ -134,6 +134,7 @@ its own approval.
 | Orchestration | Prefect in Docker Compose | Retries, schedules, run history, and automatic restarts |
 | Prefect dependency | Optional `orchestration` extra, installed in the scheduler image | Keeps core and future serving installs small |
 | Object storage | SeaweedFS through the S3 API, behind `DatasetStore` | Maintained and free; the MinIO community repository is archived |
+| Active data store | `storage.backend: s3`; local `data/` kept as a migration backup | Jobs and models share one store, with a verified way to roll back |
 
 **Open decisions** (ask the maintainer, do not assume): model evaluation, Open-Meteo usage limits
 and key needs, preprocessing design patterns (to be adopted from the maintainer's existing
