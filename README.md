@@ -102,41 +102,34 @@ uv run pre-commit install     # enable the git pre-commit hooks (once per clone)
 uv run skycast                # → Hello from SkyCast v0.1.0!
 ```
 
-### Build the local datasets
+### Build the datasets
 
-Place the configured raw CSV in `data/bronze/city=<slug>/`, then run:
+The configured backend is `s3`, so SeaweedFS must be running and `.env` must hold its keys:
 
 ```bash
-uv run skycast data build
+docker compose up -d seaweedfs
+uv run --env-file .env skycast data build
 ```
 
-This validates bronze and writes clean hourly Parquet to `data/silver/` and model-ready Parquet to
-`data/gold/`. Dataset files stay local and are ignored by git. The command is safe to rerun.
+This validates bronze and writes clean hourly Parquet to silver and model-ready Parquet to gold.
+Dataset files are ignored by git. The command is safe to rerun.
 
 ### Update the data
 
-Run one update now:
+The Docker scheduler normally runs updates. To run one update manually, stop it first:
 
 ```bash
-uv run skycast data update --source recent
-uv run skycast data update --source archive
-```
-
-Or run both on their configured schedules with Prefect:
-
-```bash
-uv sync --extra orchestration
-uv run prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api  # once
-
-uv run prefect server start      # terminal 1, UI at http://127.0.0.1:4200
-uv run skycast data schedule     # terminal 2
+docker compose stop skycast-scheduler
+uv run --env-file .env skycast data update --source recent
+uv run --env-file .env skycast data update --source archive
+docker compose start skycast-scheduler
 ```
 
 Scheduled runs execute one at a time. Do not run a manual update while the scheduler is active.
 
 ### Run with Docker
 
-Stop any local `skycast data schedule` first, because only one scheduler should use `data/`.
+Only one scheduler should use the dataset store at a time.
 
 ```bash
 docker compose up -d --build     # build and start in the background
@@ -146,30 +139,35 @@ docker compose up -d --build     # rebuild after code changes
 docker compose down              # stop, keeping data and run history
 ```
 
-The Prefect UI is available at <http://127.0.0.1:4200>. `data/` is shared with the scheduler,
-`config/` is read-only, and Prefect history is stored in a Docker volume.
+The Prefect UI is available at <http://127.0.0.1:4200>. `config/` is mounted read-only, so changes
+to it affect the next run. Prefect history is stored in a Docker volume.
 
-### Move data to object storage
+### Object storage
 
-SeaweedFS provides S3-compatible storage through the optional `storage` Compose profile. Its files
-live in the git-ignored `object-store/` folder.
+SeaweedFS is the active dataset store. It runs through the `storage` Compose profile and keeps its
+files in the git-ignored `object-store/` folder. Keep `COMPOSE_PROFILES=storage` in `.env`.
+
+To set up a new machine, or migrate a `data/` folder into an empty store:
 
 ```bash
 cp .env.example .env             # then fill in both keys with: openssl rand -hex 24
-docker compose down              # stop the scheduler so data cannot change during the copy
+docker compose stop skycast-scheduler
 docker compose up -d seaweedfs
-uv run --env-file .env skycast data migrate   # copy and verify every file, safe to rerun
-```
-
-After the migration succeeds, set `storage.backend` to `s3` in `config/data.yaml`, then run:
-
-```bash
+uv run --env-file .env skycast data migrate   # copy and verify every file
 uv run --env-file .env skycast data build
 docker compose up -d --build
 ```
 
-The migration never deletes `data/`. To roll back, set the backend to `local` and restart. Updates
-made while using `s3` exist only in object storage.
+The migration never deletes `data/` and never overwrites a different file in the store.
+
+### Recovery
+
+- **SeaweedFS is down:** run `docker compose up -d seaweedfs`. Jobs fail while it is down, and the
+  next successful run continues from the saved checkpoint.
+- **Roll back to local files:** stop the scheduler, set `storage.backend` to `local`, and start it
+  again. `data/` is a backup from the switch, so updates made on `s3` stay only in object storage.
+- **Keep the backup:** do not delete `data/` or `object-store/`. Together they hold the only copies
+  of the raw data.
 
 ### Development commands
 

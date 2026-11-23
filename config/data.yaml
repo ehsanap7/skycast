@@ -1,7 +1,7 @@
 active_city: toronto
 
 storage:
-  backend: local
+  backend: s3
   root: data
   bucket: skycast
 
